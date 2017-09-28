@@ -110,12 +110,16 @@ if options.segmentationFactor>1
 end
 
 % Check that all sounds have the same format
-siz = wavread(estFile,'size');
+estInfo = audioinfo(estFile);
+NChan = estInfo.NumChannels;
 for j=1:J
-    if any(siz~=wavread(srcFiles{j},'size'))
+    srcInfo = audioinfo(srcFiles{j});
+    if srcInfo.NumChannels~=estInfo.NumChannels ...
+        || srcInfo.TotalSamples~=estInfo.TotalSamples
         fprintf(2,'Size of source file %d (%s): %d x %d\n',...
-            j,srcFiles{j},wavread(srcFiles{j},'size'));
-        fprintf(2,'Size of estimate file (%s): %d x %d\n',estFile,siz);
+            j,srcFiles{j},srcInfo.TotalSamples,srcInfo.NumChannels);
+        fprintf(2,'Size of estimate file (%s): %d x %d\n',...
+            estInfo.TotalSamples,estInfo.NumChannels);
         error('PEASS:BadSoundSize',...
             'Sound files must have the same size (length and number of channels).');
     end
@@ -132,12 +136,10 @@ fprintf(fid,'*********************************************\n\n');
 
 %% Auditory filter bank
 fprintf('Auditory filter bank... ');
-siz = wavread(srcFiles{1},'size');
-NChan = siz(2);
 sj_gamma = cell(J,NChan);
 Mmod = []; % to store coefficients and save computations
 for j=1:J
-    [sj fs] = wavread(srcFiles{j});
+    [sj fs] = audioread(srcFiles{j});
     if options.shadeInMs>0
         wShadeIn = hann(2*round(options.shadeInMs/1000*fs+1),'periodic');
         wShadeIn = wShadeIn(2:end/2);
@@ -160,7 +162,7 @@ for j=1:J
 end
 
 sj_est_gamma = cell(1,NChan);
-[sj fs] = wavread(estFile);
+[sj fs] = audioread(estFile);
 if options.shadeInMs>0
     wShadeIn = hann(2*round(options.shadeInMs/1000*fs+1),'periodic');
     wShadeIn = wShadeIn(2:end/2);
@@ -239,10 +241,10 @@ for nChan = 1:NChan
     [artifSynth(:,nChan), synthesizer, Mmod] = ...
         myPemoSynthesisFilterBank(s_gamma_artif{1,nChan},analyzer,Mmod);
 end
-wavwrite(trueSynth,fs,outputFilenames{1,1});
-wavwrite(targetSynth,fs,outputFilenames{2,1});
-wavwrite(interfSynth,fs,outputFilenames{3,1});
-wavwrite(artifSynth,fs,outputFilenames{4,1});
+audiowrite(outputFilenames{1,1},trueSynth,fs);
+audiowrite(outputFilenames{2,1},targetSynth,fs);
+audiowrite(outputFilenames{3,1},interfSynth,fs);
+audiowrite(outputFilenames{4,1},artifSynth,fs);
 
 clear trueSynth targetSynth interfSynth artifSynth
 fprintf('Done\n')
@@ -253,8 +255,10 @@ return
 %%%%%%%%%%%%%%%%%
 function aux_segmentAndDecompose(srcFiles,estFile,options)
 try
-    [siz fs] = wavread(srcFiles{1},'size');
-    TCut = ceil(siz(1)/options.segmentationFactor)/fs;
+    audio = audioinfo(srcFiles{1});
+    samples = audio.TotalSamples;
+    fs = audio.SampleRate;
+    TCut = ceil(samples/options.segmentationFactor)/fs;
     for kj=1:length(srcFiles)
         [originalCutFiles(:,kj)] = aux_cutWav(srcFiles{kj},TCut);
     end
@@ -297,21 +301,25 @@ return
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [filenames,Istart] = aux_cutWav(file,T)
-[siz,fs] = wavread(file,'size');
+audio = audioinfo(file);
+samples = audio.TotalSamples;
+fs = audio.SampleRate;
 N = 2*round(T*fs/2);
-Istart = 1:N/2:siz(1)-N/2+1;
-Iend = min(Istart+N-1,siz(1));
+Istart = 1:N/2:samples-N/2+1;
+Iend = min(Istart+N-1,samples);
 
 destBase = tempname;
 for kCut = 1:length(Istart)
-    [x,fs] = wavread(file,[Istart(kCut), Iend(kCut)]);
-    wavwrite(x,fs,[destBase '_' num2str(kCut) '.wav']);
+    [x,fs] = audioread(file,[Istart(kCut), Iend(kCut)]);
+    audiowrite([destBase '_' num2str(kCut) '.wav'],x,fs);
     filenames{kCut} = [destBase '_' num2str(kCut) '.wav'];
 end
 return
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function aux_mergeWav(cutFilenames,estFile,Istart,options)
-[siz0 fs] = wavread(estFile,'size');
+audio = audioinfo(estFile);
+siz0 = [audio.TotalSamples audio.NumChannels];
+fs = audio.SampleRate;
 components = {'true','eArtif','eTarget','eInterf'};
 
 for kComp = 1:length(components)
@@ -319,7 +327,7 @@ for kComp = 1:length(components)
     w = zeros(siz0);
     for kCut = 1:length(Istart)
         sourceFile = [cutFilenames{kCut}(1:end-4) '_' components{kComp} '.wav'];
-        xCut = wavread(sourceFile);
+        xCut = audioread(sourceFile);
         if kComp==1 && kCut==1
             wCut = flipud(hann(size(xCut,1),'periodic'))*ones(1,siz0(2));
         end
@@ -340,7 +348,7 @@ for kComp = 1:length(components)
     destFilename = sprintf(...
         '%s%s_%s.wav',...
         options.destDir,destFilename,components{kComp});
-    wavwrite(x,fs,destFilename);
+    audiowrite(destFilename,x,fs);
 end
 
 

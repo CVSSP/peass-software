@@ -25,10 +25,10 @@ function [ISR, SIR, SAR, SDR] = ...
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-sTrue = wavread(decompositionFilenames{1});
-eTarget = wavread(decompositionFilenames{2});
-eInterf = wavread(decompositionFilenames{3});
-eArtif = wavread(decompositionFilenames{4});
+sTrue = audioread(decompositionFilenames{1});
+eTarget = audioread(decompositionFilenames{2});
+eInterf = audioread(decompositionFilenames{3});
+eArtif = audioread(decompositionFilenames{4});
 
 ISR = 10*log10(sum(sTrue(:).^2)/sum(eTarget(:).^2));
 SIR = 10*log10(sum((sTrue(:)+eTarget(:)).^2)/sum(eInterf(:).^2));

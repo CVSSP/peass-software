@@ -32,10 +32,10 @@ function [qTarget, qInterf, qArtif, qGlobal] = audioQualityFeatures(decompositio
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % load signals
-[sTrue, fs] = wavread(decompositionFilenames{1});
-eTarget = wavread(decompositionFilenames{2});
-eInterf = wavread(decompositionFilenames{3});
-eArtif = wavread(decompositionFilenames{4});
+[sTrue, fs] = audioread(decompositionFilenames{1});
+eTarget = audioread(decompositionFilenames{2});
+eInterf = audioread(decompositionFilenames{3});
+eArtif = audioread(decompositionFilenames{4});
 testAll=sTrue+eTarget+eInterf+eArtif;
 
 % compute internal representations and apply audio quality measures over
